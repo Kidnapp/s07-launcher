@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>S07 Launcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* ===== ตั้งค่า =====
+   ใส่ Google Maps API key ใน config.js หรือในบรรทัด GMAPS_KEY ด้านล่าง
+   ถ้าเว้นว่าง จะใช้แผนที่ OpenStreetMap (ฟรี ไม่ต้องมี key) แทน */
+
+/* Layout: แถบสถานะบน · แผงแผนที่ + แผงความบันเทิง (สลับซ้าย/ขวาได้) · dock ล่าง */
+:root{
+  --bg:#0c0f14; --panel:#151a22; --panel-2:#1d2430; --line:rgba(255,255,255,.07);
+  --fg:#edf1f7; --muted:#8b95a7; --accent:#4d8dff; --ok:#3ecf8e; --warn:#f5b84a; --bad:#ff5d5d;
+  --yt:#ff2b2b; --ytm:#ff5a36;
+  --f-ui:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"Space Grotesk","IBM Plex Sans Thai",system-ui,sans-serif;
+  --split:62%;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:16px;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:flex;flex-direction:column;gap:10px;
+  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+
+/* status bar */
+.bar{display:flex;align-items:center;gap:16px;padding:0 6px;min-height:40px}
+.clock{font-family:var(--f-num);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.date{color:var(--muted);font-size:15px}
+.spacer{flex:1}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:14px;color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.chip[data-s="ok"] .dot{background:var(--ok)} .chip[data-s="ok"]{color:var(--fg)}
+.chip[data-s="wait"] .dot{background:var(--warn);animation:pulse 1.2s infinite}
+.chip[data-s="bad"] .dot{background:var(--bad)} .chip[data-s="bad"]{color:#ffb3b3}
+@keyframes pulse{50%{opacity:.3}}
+
+/* main split */
+.main{flex:1;min-height:0;display:flex;gap:10px}
+.main.swap{flex-direction:row-reverse}
+.pane{min-width:0;min-height:0;border-radius:18px;background:var(--panel);border:1px solid var(--line);overflow:hidden;position:relative}
+.map-pane{flex:0 0 var(--split)}
+.media-pane{flex:1;display:flex;flex-direction:column;padding:16px;gap:14px}
+
+/* map */
+#map{position:absolute;inset:0;background:#10141b}
+#map.map-dark .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.92) saturate(.85)}
+.map-top{position:absolute;top:12px;left:12px;right:12px;z-index:500;display:flex;gap:8px}
+.searchwrap{flex:1;min-width:0;position:relative}
+.search{display:flex;align-items:center;gap:8px;background:rgba(21,26,34,.95);border:1px solid var(--line);border-radius:14px;padding:0 8px 0 14px;height:52px;backdrop-filter:blur(8px)}
+.search input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:17px;user-select:text}
+.search input::placeholder{color:var(--muted)}
+.qclear{width:34px;height:34px;border:0;background:var(--panel-2);border-radius:9px;display:grid;place-items:center;color:var(--muted);flex:none}
+.qclear[hidden]{display:none}
+.sugg{position:absolute;top:58px;left:0;right:0;z-index:600;list-style:none;margin:0;padding:6px;background:rgba(21,26,34,.98);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);max-height:48vh;overflow-y:auto;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.sugg[hidden]{display:none}
+.sugg li{display:flex;align-items:center;gap:11px;padding:11px 10px;border-radius:9px;cursor:pointer}
+.sugg li.active,.sugg li:hover{background:var(--panel-2)}
+.sugg .pin{width:30px;height:30px;border-radius:8px;background:rgba(77,141,255,.14);display:grid;place-items:center;flex:none;color:var(--accent)}
+.sugg .pin svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.sugg .txt{min-width:0}
+.sugg .s1{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sugg .s2{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ibtn{height:52px;min-width:52px;border-radius:14px;border:1px solid var(--line);background:rgba(21,26,34,.94);display:grid;place-items:center;backdrop-filter:blur(8px)}
+.ibtn.sm{height:42px;min-width:42px;border:0;background:var(--panel-2);border-radius:10px}
+.ibtn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ibtn.on{color:var(--accent);border-color:rgba(77,141,255,.5)}
+.map-side{position:absolute;right:12px;bottom:96px;z-index:500;display:flex;flex-direction:column;gap:8px}
+.dest{position:absolute;left:12px;right:12px;bottom:12px;z-index:500;display:flex;flex-direction:column;background:rgba(21,26,34,.97);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(8px);overflow:hidden;max-height:62%}
+.dest[hidden]{display:none}
+.dhead{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px}
+.dest .t{flex:1;min-width:0}
+.dest .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dest .s{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chev{transition:transform .2s}
+.dest.open .chev{transform:rotate(180deg)}
+.steps{list-style:none;margin:0;padding:4px 12px 12px;overflow-y:auto;border-top:1px solid var(--line);display:flex;flex-direction:column}
+.steps[hidden]{display:none}
+.steps li{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid rgba(255,255,255,.05)}
+.steps li:last-child{border-bottom:0}
+.steps .ar{font-size:20px;line-height:1;color:var(--accent);width:26px;text-align:center;flex:none}
+.steps .st{flex:1;min-width:0;font-size:15px}
+.steps .sd{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;flex:none}
+.go{height:52px;padding:0 20px;border-radius:12px;border:0;background:var(--accent);color:#fff;font-weight:600;font-size:16px;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-width:92px}
+.go.stop{background:var(--bad)}
+.toast{position:absolute;left:50%;top:76px;transform:translateX(-50%);z-index:600;background:var(--panel-2);border:1px solid var(--line);padding:8px 14px;border-radius:10px;font-size:14px;max-width:90%;text-align:center}
+.leaflet-container{background:#10141b;font-family:var(--f-ui)}
+.leaflet-control-attribution{background:rgba(12,15,20,.7)!important;color:var(--muted)!important;font-size:10px}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.me{width:20px;height:20px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 0 0 8px rgba(77,141,255,.25)}
+
+/* media: desktop + มินิแอป */
+.view{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.view[hidden]{display:none}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ph h2{margin:0;font-size:15px;font-weight:500;color:var(--muted);letter-spacing:.04em}
+.apps{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start}
+.appbtn{border:1px solid var(--line);border-radius:18px;background:var(--panel-2);color:var(--fg);text-decoration:none;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px;min-height:122px;transition:transform .12s}
+.appbtn:active{transform:scale(.97)}
+.appbtn .aico{width:54px;height:54px;border-radius:15px;display:grid;place-items:center}
+.appbtn .aico svg{width:30px;height:30px}
+.appbtn b{font-size:17px;font-weight:600}
+.a-yt .aico{background:var(--yt)} .a-ytm .aico{background:#ff3b30}
+.a-maps .aico{background:#2d7d46} .a-set .aico{background:#3a4254}
+.desk-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.footbtn{height:52px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--fg);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px}
+.footbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ytbar{display:flex;align-items:center;gap:8px}
+.ytsearch{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:48px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:0 14px}
+.ytsearch input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:15px;user-select:text}
+.ytsearch input::placeholder{color:var(--muted)}
+.ytplayer-box{position:relative;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line);aspect-ratio:16/9;flex:none}
+.ytplayer-box[hidden]{display:none}
+.ytplayer-box #ytplayer{position:absolute;inset:0}
+.ytplayer-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.ytresults{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.ytcard{text-align:left;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel-2);color:var(--fg);display:flex;flex-direction:column;padding:0;transition:transform .12s}
+.ytcard:active{transform:scale(.98)}
+.ytcard .th{aspect-ratio:16/9;background:#000;overflow:hidden}
+.ytcard .th img{width:100%;height:100%;object-fit:cover;display:block}
+.ytcard .meta{padding:8px 10px}
+.ytcard .ti{font-size:13px;font-weight:500;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ytcard .ch{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ytmsg{color:var(--muted);text-align:center;padding:24px 16px;font-size:14px;line-height:1.55}
+.ytmsg[hidden]{display:none}
+
+/* settings sheet */
+.sheet{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:16px}
+.sheet[hidden]{display:none}
+.card{width:min(520px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:18px}
+.card h3{margin:0;font-size:20px}
+.row{display:flex;flex-direction:column;gap:8px}
+.row label{color:var(--muted);font-size:14px}
+.seg{display:flex;background:var(--panel-2);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;height:46px;border:0;border-radius:9px;background:none;color:var(--muted);font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.card .close{align-self:flex-end;height:46px;padding:0 22px;border-radius:12px;border:0;background:var(--panel-2)}
+
+@media (max-width:760px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100%}
+  .main,.main.swap{flex-direction:column}
+  .map-pane{flex:none;height:60vh}
+  .date{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+    <div class="spacer"></div>
+    <div class="chip" id="gps" data-s="wait"><span class="dot"></span><span id="gpsTxt">กำลังหาตำแหน่ง…</span></div>
+    <button class="ibtn sm" id="openSettings" aria-label="ตั้งค่า"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </header>
+
+  <main class="main" id="main">
+    <section class="pane map-pane" aria-label="แผนที่">
+      <div id="map"></div>
+      <form class="map-top" id="searchForm" autocomplete="off">
+        <div class="searchwrap">
+          <div class="search">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="q" type="search" placeholder="ค้นหาสถานที่ เช่น เซ็นทรัลเวิลด์" enterkeyhint="search">
+            <button type="button" id="qClear" class="qclear" aria-label="ล้าง" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>
+          <ul class="sugg" id="sugg" hidden></ul>
+        </div>
+      </form>
+      <div class="map-side">
+        <button class="ibtn on" id="follow" aria-label="ติดตามตำแหน่ง"><svg viewBox="0 0 24 24"><path d="m3 11 19-9-9 19-2-8-8-2z"/></svg></button>
+        <button class="ibtn" id="zin" aria-label="ซูมเข้า"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="ibtn" id="zout" aria-label="ซูมออก"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      </div>
+      <div class="dest" id="dest" hidden>
+        <div class="dhead">
+          <div class="t"><div class="n" id="destName"></div><div class="s" id="destSub"></div></div>
+          <button class="ibtn sm" id="stepsToggle" aria-label="ดูเส้นทาง" hidden><svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+          <a class="ibtn sm" id="gmapBtn" href="#" target="_blank" rel="noopener" aria-label="เปิดใน Google Maps (นำทางเสียง)"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></a>
+          <button class="go" id="goBtn" type="button">นำทาง</button>
+        </div>
+        <ol class="steps" id="steps" hidden></ol>
+      </div>
+      <div class="toast" id="toast" hidden></div>
+    </section>
+
+    <section class="pane media-pane" aria-label="แอปและความบันเทิง">
+      <!-- หน้า desktop -->
+      <div class="view desk" id="deskView">
+        <div class="ph"><h2>แอป</h2></div>
+        <div class="apps">
+          <button class="appbtn a-yt" data-app="youtube" type="button">
+            <span class="aico"><svg viewBox="0 0 24 24" fill="#fff"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.8 12 4.8 12 4.8s-5.9 0-7.6.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 7.6.4 7.6.4s5.9 0 7.6-.4a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8zM10 15V9l5 3z"/></svg></span>
+            <b>YouTube</b>
+          </button>
+          <button class="appbtn a-ytm" data-app="music" type="button">
+            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z" fill="#fff" stroke="none"/></svg></span>
+            <b>YouTube Music</b>
+          </button>
+          <a class="appbtn a-maps" href="https://www.google.com/maps" target="_blank" rel="noopener">
+            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+            <b>Maps เต็มจอ</b>
+          </a>
+          <button class="appbtn a-set" id="appSettings" type="button">
+            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 13v-2l-2-.3a5 5 0 0 0-.5-1.2l1.2-1.6-1.4-1.4-1.6 1.2a5 5 0 0 0-1.2-.5L13 5h-2l-.3 2a5 5 0 0 0-1.2.5L7.9 6.3 6.5 7.7l1.2 1.6a5 5 0 0 0-.5 1.2L5 11v2l2 .3a5 5 0 0 0 .5 1.2l-1.2 1.6 1.4 1.4 1.6-1.2a5 5 0 0 0 1.2.5l.3 2h2l.3-2a5 5 0 0 0 1.2-.5l1.6 1.2 1.4-1.4-1.2-1.6a5 5 0 0 0 .5-1.2z"/></svg></span>
+            <b>ตั้งค่า</b>
+          </button>
+        </div>
+        <div class="desk-foot">
+          <button class="footbtn" id="swapBtn" type="button"><svg viewBox="0 0 24 24"><path d="M7 7h13l-3-3M17 17H4l3 3"/></svg>สลับฝั่ง</button>
+          <button class="footbtn" id="splitBtn" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg><span id="splitTxt">62/38</span></button>
+        </div>
+      </div>
+      <!-- หน้า YouTube app -->
+      <div class="view ytapp" id="ytappView" hidden>
+        <div class="ytbar">
+          <button class="ibtn sm" id="ytBack" aria-label="กลับ"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <form class="ytsearch" id="ytSearchForm" autocomplete="off">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="ytQ" type="search" placeholder="ค้นหาบน YouTube" enterkeyhint="search">
+          </form>
+          <button class="ibtn sm" id="fsBtn" aria-label="เต็มจอ"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8-18h3a2 2 0 0 1 2 2v3m0 8v3a2 2 0 0 1-2 2h-3"/></svg></button>
+        </div>
+        <div class="ytplayer-box" id="ytPlayerBox" hidden><div id="ytplayer"></div></div>
+        <div class="ytresults" id="ytResults"></div>
+        <div class="ytmsg" id="ytMsg" hidden></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="card" role="dialog" aria-label="ตั้งค่า">
+    <h3>ตั้งค่าหน้าจอ</h3>
+    <div class="row"><label>แผนที่อยู่ฝั่ง</label>
+      <div class="seg" id="segSide"><button data-v="left">ซ้าย</button><button data-v="right">ขวา (ฝั่งคนขับ)</button></div></div>
+    <div class="row"><label>สัดส่วนแผนที่ : ความบันเทิง</label>
+      <div class="seg" id="segSplit"><button data-v="50">50/50</button><button data-v="62">62/38</button><button data-v="70">70/30</button></div></div>
+    <div class="row"><label>สีแผนที่</label>
+      <div class="seg" id="segTheme"><button data-v="dark">มืด</button><button data-v="light">สว่าง</button></div></div>
+    <button class="close" id="closeSettings">เสร็จ</button>
+  </div>
+</div>
+
+<script src="config.js" onerror="void 0"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  // ---- ตั้งค่า ----
+  var GMAPS_KEY = (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.googleMapsKey) || "";
+  var YT_KEY = (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.youtubeApiKey) || "";
+  var DEFAULT_CENTER = [13.7466, 100.5393]; // กรุงเทพฯ (ใช้ก่อนจับตำแหน่งได้)
+
+  var $ = function(id){ return document.getElementById(id); };
+  var store = {
+    get:function(k,d){ try{ var v=localStorage.getItem("s07."+k); return v===null?d:v; }catch(e){ return d; } },
+    set:function(k,v){ try{ localStorage.setItem("s07."+k,v); }catch(e){} }
+  };
+  var prefs = { side: store.get("side","left"), split: store.get("split","62"), theme: store.get("theme","dark") };
+
+  // ---- นาฬิกา ----
+  function tick(){
+    var d=new Date();
+    $("clock").textContent = d.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
+    $("date").textContent = d.toLocaleDateString("th-TH",{weekday:"long",day:"numeric",month:"short"});
+  }
+  tick(); setInterval(tick, 10000);
+
+  function toast(msg){ var t=$("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(function(){t.hidden=true;},3500); }
+  function setGps(s, txt){ $("gps").dataset.s=s; $("gpsTxt").textContent=txt; }
+
+  // ---- layout prefs ----
+  function applyPrefs(){
+    $("main").classList.toggle("swap", prefs.side==="right");
+    document.documentElement.style.setProperty("--split", prefs.split+"%");
+    $("splitTxt").textContent = prefs.split+"/"+(100-prefs.split);
+    [["segSide","side"],["segSplit","split"],["segTheme","theme"]].forEach(function(p){
+      Array.prototype.forEach.call($(p[0]).children,function(b){ b.setAttribute("aria-pressed", String(b.dataset.v===prefs[p[1]])); });
+    });
+    if (map) setTimeout(function(){ map.invalidate(); }, 60);
+  }
+  function setPref(k,v){ prefs[k]=v; store.set(k,v); applyPrefs(); if(k==="theme" && map) map.setTheme(v); }
+  [["segSide","side"],["segSplit","split"],["segTheme","theme"]].forEach(function(p){
+    $(p[0]).addEventListener("click",function(e){ var b=e.target.closest("button"); if(b) setPref(p[1], b.dataset.v); });
+  });
+  $("swapBtn").onclick=function(){ setPref("side", prefs.side==="left"?"right":"left"); };
+  $("splitBtn").onclick=function(){ var o=["50","62","70"]; setPref("split", o[(o.indexOf(prefs.split)+1)%o.length]); };
+  $("openSettings").onclick=function(){ $("sheet").hidden=false; };
+  $("closeSettings").onclick=function(){ $("sheet").hidden=true; };
+  $("sheet").addEventListener("click",function(e){ if(e.target===this) this.hidden=true; });
+
+  // ---- map adapters ----
+  var map = null, follow = true, me = null;
+
+  function leafletAdapter(){
+    var urls={
+      dark:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      light:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+    };
+    var ref={
+      dark:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+      light:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+    };
+    var m = L.map("map",{zoomControl:false,attributionControl:true}).setView(DEFAULT_CENTER, 14);
+    var opt={maxZoom:19,maxNativeZoom:16,attribution:'&copy; Esri'};
+    var base = L.tileLayer(urls[prefs.theme],opt).addTo(m);
+    var labels = L.tileLayer(ref[prefs.theme],{maxZoom:19,maxNativeZoom:16}).addTo(m);
+    var meM=null, destM=null, routeLine=null;
+    m.on("dragstart",function(){ setFollow(false); });
+    return {
+      invalidate:function(){ m.invalidateSize(); },
+      setTheme:function(t){ base.setUrl(urls[t]); labels.setUrl(ref[t]); },
+      drawRoute:function(ll){ if(routeLine) m.removeLayer(routeLine);
+        routeLine=L.layerGroup([
+          L.polyline(ll,{color:"#0a1020",weight:10,opacity:.6}),
+          L.polyline(ll,{color:"#4d8dff",weight:6,opacity:.95})
+        ]).addTo(m);
+        m.fitBounds(L.polyline(ll).getBounds(),{padding:[50,50]}); },
+      clearRoute:function(){ if(routeLine){ m.removeLayer(routeLine); routeLine=null; } },
+      zoom:function(d){ m.setZoom(m.getZoom()+d); },
+      setMe:function(lat,lng){
+        if(!meM) meM=L.marker([lat,lng],{icon:L.divIcon({className:"",html:'<div class="me"></div>',iconSize:[20,20]})}).addTo(m);
+        else meM.setLatLng([lat,lng]);
+      },
+      center:function(lat,lng,z){ m.setView([lat,lng], z||m.getZoom()); },
+      search:function(q, near){
+        var url="https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=th&countrycodes=th&q="+encodeURIComponent(q);
+        if(near) url+="&viewbox="+(near[1]-0.5)+","+(near[0]+0.5)+","+(near[1]+0.5)+","+(near[0]-0.5);
+        return fetch(url).then(function(r){return r.json();}).then(function(a){
+          if(!a.length) return null;
+          return {lat:+a[0].lat,lng:+a[0].lon,name:a[0].display_name.split(",")[0],sub:a[0].display_name.split(",").slice(1,3).join(",")};
+        });
+      },
+      setDest:function(p){
+        if(destM) m.removeLayer(destM);
+        destM=L.marker([p.lat,p.lng]).addTo(m);
+        m.setView([p.lat,p.lng],16);
+      }
+    };
+  }
+
+  var DARK_STYLE=[
+    {elementType:"geometry",stylers:[{color:"#151a22"}]},
+    {elementType:"labels.text.fill",stylers:[{color:"#8b95a7"}]},
+    {elementType:"labels.text.stroke",stylers:[{color:"#0c0f14"}]},
+    {featureType:"poi",stylers:[{visibility:"simplified"}]},
+    {featureType:"poi",elementType:"labels.icon",stylers:[{saturation:-60},{lightness:-20}]},
+    {featureType:"road",elementType:"geometry",stylers:[{color:"#262e3b"}]},
+    {featureType:"road.highway",elementType:"geometry",stylers:[{color:"#34405a"}]},
+    {featureType:"road",elementType:"labels.text.fill",stylers:[{color:"#a7b1c2"}]},
+    {featureType:"transit",stylers:[{visibility:"off"}]},
+    {featureType:"water",elementType:"geometry",stylers:[{color:"#0a1626"}]},
+    {featureType:"landscape.man_made",elementType:"geometry",stylers:[{color:"#1a202a"}]}
+  ];
+
+  function googleAdapter(){
+    var m = new google.maps.Map($("map"),{
+      center:{lat:DEFAULT_CENTER[0],lng:DEFAULT_CENTER[1]}, zoom:15, disableDefaultUI:true,
+      gestureHandling:"greedy", clickableIcons:false, styles: prefs.theme==="dark"?DARK_STYLE:null
+    });
+    var traffic = new google.maps.TrafficLayer(); traffic.setMap(m);
+    var geocoder = new google.maps.Geocoder();
+    var meM=null, destM=null, routeLine=null;
+    m.addListener("dragstart",function(){ setFollow(false); });
+    return {
+      invalidate:function(){},
+      setTheme:function(t){ m.setOptions({styles:t==="dark"?DARK_STYLE:null}); },
+      drawRoute:function(ll){ if(routeLine) routeLine.setMap(null);
+        var path=ll.map(function(c){return {lat:c[0],lng:c[1]};});
+        routeLine=new google.maps.Polyline({path:path,strokeColor:"#4d8dff",strokeWeight:6,strokeOpacity:.95,map:m});
+        var b=new google.maps.LatLngBounds(); path.forEach(function(p){b.extend(p);}); m.fitBounds(b,50); },
+      clearRoute:function(){ if(routeLine){ routeLine.setMap(null); routeLine=null; } },
+      zoom:function(d){ m.setZoom(m.getZoom()+d); },
+      setMe:function(lat,lng){
+        var pos={lat:lat,lng:lng};
+        if(!meM) meM=new google.maps.Marker({position:pos,map:m,icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:"#4d8dff",fillOpacity:1,strokeColor:"#fff",strokeWeight:3}});
+        else meM.setPosition(pos);
+      },
+      center:function(lat,lng,z){ m.panTo({lat:lat,lng:lng}); if(z) m.setZoom(z); },
+      search:function(q, near){
+        return new Promise(function(res){
+          var req={address:q,region:"th",language:"th"};
+          if(near) req.bounds=new google.maps.LatLngBounds({lat:near[0]-0.5,lng:near[1]-0.5},{lat:near[0]+0.5,lng:near[1]+0.5});
+          geocoder.geocode(req,function(r,st){
+            if(st!=="OK"||!r.length) return res(null);
+            var p=r[0], parts=p.formatted_address.split(",");
+            res({lat:p.geometry.location.lat(),lng:p.geometry.location.lng(),name:parts[0],sub:parts.slice(1,3).join(",")});
+          });
+        });
+      },
+      setDest:function(p){
+        if(destM) destM.setMap(null);
+        destM=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:m});
+        m.panTo({lat:p.lat,lng:p.lng}); m.setZoom(16);
+      }
+    };
+  }
+
+  function setFollow(v){ follow=v; $("follow").classList.toggle("on",v); if(v&&me&&map) map.center(me[0],me[1],16);
+    if(!v && navMode){ navMode=false; $("goBtn").textContent="นำทาง"; $("goBtn").classList.remove("stop"); } }
+  $("follow").onclick=function(){ if(!me){ toast("ยังไม่ได้ตำแหน่ง ลองอนุญาตการเข้าถึงตำแหน่ง"); startGps(); } setFollow(true); };
+  $("zin").onclick=function(){ map&&map.zoom(1); };
+  $("zout").onclick=function(){ map&&map.zoom(-1); };
+
+  // ---- GPS ----
+  var watchId=null;
+  function startGps(){
+    if(!("geolocation" in navigator)){ setGps("bad","เบราว์เซอร์นี้ไม่รองรับตำแหน่ง"); return; }
+    setGps("wait","กำลังหาตำแหน่ง…");
+    if(watchId!==null) navigator.geolocation.clearWatch(watchId);
+    watchId=navigator.geolocation.watchPosition(function(p){
+      me=[p.coords.latitude,p.coords.longitude];
+      var acc=Math.round(p.coords.accuracy);
+      setGps("ok","ตำแหน่งพร้อม ±"+acc+" ม.");
+      if(map){ map.setMe(me[0],me[1]); if(follow) map.center(me[0],me[1]); }
+    },function(err){
+      var msg = err.code===1?"ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง":err.code===2?"หาตำแหน่งไม่ได้":"หาตำแหน่งนานเกินไป";
+      setGps("bad",msg);
+    },{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+  }
+
+  // ---- เส้นทาง (OSRM ฟรี ไม่ต้อง key) ----
+  function fmtDist(mtr){ return mtr<1000 ? Math.round(mtr)+" ม." : (mtr/1000).toFixed(1)+" กม."; }
+  function fmtDur(sec){ var m=Math.round(sec/60); return m<60 ? m+" นาที" : Math.floor(m/60)+" ชม. "+(m%60)+" นาที"; }
+  function arrowFor(k){ var a={left:"↰",right:"↱","slight left":"↖","slight right":"↗","sharp left":"⟲","sharp right":"⟳",straight:"↑",uturn:"↩",depart:"◉",arrive:"◆"}; return a[k]||"↑"; }
+  function maneuverText(mv,name){
+    var road=name?(" "+name):"", mod=mv.modifier||"";
+    var dir={left:"เลี้ยวซ้าย",right:"เลี้ยวขวา","slight left":"เบี่ยงซ้าย","slight right":"เบี่ยงขวา","sharp left":"เลี้ยวซ้ายหักศอก","sharp right":"เลี้ยวขวาหักศอก",straight:"ตรงไป",uturn:"กลับรถ"};
+    switch(mv.type){
+      case "depart": return "เริ่มต้น"+(name?(" บน"+name):"");
+      case "arrive": return "ถึงจุดหมาย";
+      case "roundabout": case "rotary": return "เข้าวงเวียน"+(name?(" ออก"+name):"");
+      case "merge": return "รวมเลน"+road;
+      case "on ramp": return "ขึ้นทาง"+road;
+      case "off ramp": return "ลงทาง"+road;
+      case "end of road": return (dir[mod]||"เลี้ยว")+road;
+      case "fork": return (mod?("แยก "+(dir[mod]||mod)):"แยก")+road;
+      case "continue": case "new name": return "ตรงไป"+(name?("ตาม"+name):"");
+      default: return (dir[mod]||"ไปต่อ")+road;
+    }
+  }
+  function getRoute(from,to){
+    var u="https://router.project-osrm.org/route/v1/driving/"+from[1]+","+from[0]+";"+to.lng+","+to.lat+"?overview=full&geometries=geojson&steps=true";
+    return fetch(u).then(function(r){return r.json();}).then(function(d){
+      if(!d.routes||!d.routes.length) return null;
+      var rt=d.routes[0];
+      var ll=rt.geometry.coordinates.map(function(c){return [c[1],c[0]];});
+      var steps=(rt.legs[0].steps||[]).map(function(s){ return {text:maneuverText(s.maneuver,s.name), dist:s.distance, k:(s.maneuver.modifier||s.maneuver.type)}; })
+        .filter(function(s){ return s.text; });
+      return {ll:ll, distance:rt.distance, duration:rt.duration, steps:steps};
+    });
+  }
+  function openSteps(open){ $("dest").classList.toggle("open",open); $("steps").hidden=!open; }
+  var navMode=false;
+  function setNav(on){
+    if(on && !me){ toast("ต้องเปิดตำแหน่งก่อนถึงนำทางได้"); return; }
+    navMode=on;
+    $("goBtn").textContent=on?"หยุด":"นำทาง";
+    $("goBtn").classList.toggle("stop",on);
+    if(on){ setFollow(true); if(me&&map) map.center(me[0],me[1],17); openSteps(true); }
+  }
+  $("goBtn").onclick=function(){ setNav(!navMode); };
+  function computeRoute(p){
+    if(!map.drawRoute) return;
+    map.clearRoute(); openSteps(false); $("stepsToggle").hidden=true; $("steps").innerHTML="";
+    if(!me){ $("destSub").textContent="เปิดตำแหน่งก่อนเพื่อคำนวณเส้นทาง"; return; }
+    $("destSub").textContent="กำลังคำนวณเส้นทาง…";
+    getRoute(me,p).then(function(rt){
+      if(!rt){ $("destSub").textContent="หาเส้นทางไม่ได้"; return; }
+      map.drawRoute(rt.ll);
+      $("destSub").textContent=fmtDist(rt.distance)+" · "+fmtDur(rt.duration);
+      var ol=$("steps"); ol.innerHTML="";
+      rt.steps.forEach(function(s){
+        var li=document.createElement("li");
+        li.innerHTML='<span class="ar"></span><span class="st"></span><span class="sd"></span>';
+        li.querySelector(".ar").textContent=arrowFor(s.k);
+        li.querySelector(".st").textContent=s.text;
+        li.querySelector(".sd").textContent=fmtDist(s.dist);
+        ol.appendChild(li);
+      });
+      $("stepsToggle").hidden=false;
+    }).catch(function(){ $("destSub").textContent="หาเส้นทางไม่ได้ ตรวจสอบอินเทอร์เน็ต"; });
+  }
+  $("stepsToggle").onclick=function(){ openSteps($("steps").hidden); };
+
+  // ---- ค้นหา + แนะนำสถานที่ (Photon ฟรี) ----
+  function gotoPlace(p){
+    setFollow(false);
+    map.setDest(p);
+    $("destName").textContent=p.name; $("destSub").textContent=p.sub||"";
+    $("gmapBtn").href="https://www.google.com/maps/dir/?api=1&destination="+p.lat+","+p.lng+"&travelmode=driving";
+    $("dest").hidden=false;
+    setNav(false);
+    computeRoute(p);
+    hideSugg(); $("q").blur();
+  }
+  var suggList=[], suggTimer=null;
+  function hideSugg(){ $("sugg").hidden=true; }
+  function renderSugg(){
+    var ul=$("sugg"); ul.innerHTML="";
+    if(!suggList.length){ hideSugg(); return; }
+    suggList.forEach(function(it){
+      var li=document.createElement("li");
+      li.innerHTML='<span class="pin"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span><span class="txt"><span class="s1"></span><span class="s2"></span></span>';
+      li.querySelector(".s1").textContent=it.name;
+      li.querySelector(".s2").textContent=it.sub||"";
+      li.addEventListener("mousedown",function(e){ e.preventDefault(); gotoPlace(it); });
+      ul.appendChild(li);
+    });
+    ul.hidden=false;
+  }
+  function fetchSugg(v){
+    var u="https://photon.komoot.io/api/?q="+encodeURIComponent(v)+"&limit=6";
+    if(me) u+="&lat="+me[0]+"&lon="+me[1];
+    fetch(u).then(function(r){return r.json();}).then(function(d){
+      suggList=(d.features||[]).map(function(f){
+        var p=f.properties||{}, c=f.geometry.coordinates;
+        var name=p.name||p.street||p.city||p.state||"";
+        var sub=[ (p.street&&p.street!==name)?p.street:"", p.district, p.city, p.state, p.country ].filter(Boolean).join(", ");
+        return {name:name, sub:sub, lat:c[1], lng:c[0]};
+      }).filter(function(x){ return x.name; });
+      renderSugg();
+    }).catch(function(){});
+  }
+  $("q").addEventListener("input",function(){
+    var v=$("q").value.trim();
+    $("qClear").hidden=!v;
+    clearTimeout(suggTimer);
+    if(v.length<2){ suggList=[]; hideSugg(); return; }
+    suggTimer=setTimeout(function(){ fetchSugg(v); }, 280);
+  });
+  $("q").addEventListener("focus",function(){ if(suggList.length) $("sugg").hidden=false; });
+  document.addEventListener("click",function(e){ if(!e.target.closest(".searchwrap")) hideSugg(); });
+  $("qClear").onclick=function(){ $("q").value=""; $("qClear").hidden=true; suggList=[]; hideSugg(); $("q").focus(); };
+  $("searchForm").addEventListener("submit",function(e){
+    e.preventDefault();
+    var q=$("q").value.trim(); if(!q||!map) return;
+    if(suggList.length){ gotoPlace(suggList[0]); return; }
+    $("q").blur();
+    map.search(q, me).then(function(p){
+      if(!p){ toast("ไม่พบ “"+q+"”"); return; }
+      gotoPlace(p);
+    }).catch(function(){ toast("ค้นหาไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"); });
+  });
+
+  // ---- มินิแอป YouTube (ค้นหา+เล่นในแผง) ----
+  var ytMode="youtube", ytLoaded=false;
+  function showApp(which){
+    var isDesk = which==="desktop";
+    $("deskView").hidden=!isDesk;
+    $("ytappView").hidden=isDesk;
+    if(!isDesk){
+      ytMode=which;
+      $("ytQ").placeholder = which==="music" ? "ค้นหาเพลงบน YouTube Music" : "ค้นหาบน YouTube";
+      if(!ytLoaded){ ytLoaded=true; loadTrending(); }
+    }
+  }
+  function decodeEnt(s){ var t=document.createElement("textarea"); t.innerHTML=s||""; return t.value; }
+  function ytMsg(txt){ var m=$("ytMsg"); if(txt){ m.textContent=txt; m.hidden=false; } else m.hidden=true; }
+  function renderResults(items){
+    var box=$("ytResults"); box.innerHTML=""; var n=0;
+    (items||[]).forEach(function(it){
+      var vid=(it.id&&it.id.videoId)||(typeof it.id==="string"?it.id:null); if(!vid) return;
+      var sn=it.snippet||{}, th=((sn.thumbnails&&(sn.thumbnails.medium||sn.thumbnails.high||sn.thumbnails.default))||{}).url||"";
+      var card=document.createElement("button"); card.type="button"; card.className="ytcard";
+      card.innerHTML='<div class="th"><img loading="lazy" alt=""></div><div class="meta"><div class="ti"></div><div class="ch"></div></div>';
+      card.querySelector("img").src=th;
+      card.querySelector(".ti").textContent=decodeEnt(sn.title);
+      card.querySelector(".ch").textContent=decodeEnt(sn.channelTitle);
+      card.onclick=function(){ playVid(vid); };
+      box.appendChild(card); n++;
+    });
+    ytMsg(n?"":"ไม่พบผลลัพธ์");
+  }
+  var NOKEY="ยังไม่ได้ใส่ YouTube API key ใน config.js\nใส่แล้วจะค้นหาและเล่นวิดีโอในแผงได้เลย";
+  function ytApiSearch(q){
+    if(!YT_KEY){ ytMsg(NOKEY); return; }
+    ytMsg("กำลังค้นหา…");
+    var u="https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=16&q="+encodeURIComponent(q)+"&key="+YT_KEY;
+    fetch(u).then(function(r){return r.json();}).then(function(d){
+      if(d.error){ ytMsg("ค้นหาไม่ได้: "+((d.error&&d.error.message)||"ตรวจสอบ API key")); return; }
+      renderResults(d.items);
+    }).catch(function(){ ytMsg("ค้นหาไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"); });
+  }
+  function loadTrending(){
+    if(!YT_KEY){ ytMsg(NOKEY); return; }
+    ytMsg("กำลังโหลดวิดีโอยอดนิยม…");
+    var u="https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=TH&maxResults=16&key="+YT_KEY;
+    fetch(u).then(function(r){return r.json();}).then(function(d){
+      if(d.error){ ytMsg("โหลดไม่ได้: "+((d.error&&d.error.message)||"ตรวจสอบ API key")); return; }
+      renderResults(d.items);
+    }).catch(function(){ ytMsg("โหลดไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"); });
+  }
+  function playVid(vid){
+    $("ytplayer").innerHTML='<iframe src="https://www.youtube.com/embed/'+encodeURIComponent(vid)+'?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="origin-when-cross-origin"></iframe>';
+    $("ytPlayerBox").hidden=false;
+    try{ $("ytPlayerBox").scrollIntoView({block:"nearest"}); }catch(e){}
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".appbtn[data-app]"),function(b){
+    b.addEventListener("click",function(){ showApp(b.getAttribute("data-app")); });
+  });
+  $("ytBack").onclick=function(){ showApp("desktop"); };
+  $("appSettings").onclick=function(){ $("sheet").hidden=false; };
+  $("ytSearchForm").addEventListener("submit",function(e){ e.preventDefault(); var q=$("ytQ").value.trim(); if(q){ ytApiSearch(q); $("ytQ").blur(); } });
+  $("fsBtn").onclick=function(){ var el=$("ytPlayerBox"), r=el.requestFullscreen||el.webkitRequestFullscreen; if(r) try{ r.call(el); }catch(e){} };
+
+  // ---- start ----
+  applyPrefs();
+  function boot(adapter){ map=adapter; applyPrefs(); if(me) map.setMe(me[0],me[1]); startGps(); }
+  if(GMAPS_KEY){
+    window.__gmReady=function(){ boot(googleAdapter()); };
+    var s=document.createElement("script");
+    s.src="https://maps.googleapis.com/maps/api/js?key="+encodeURIComponent(GMAPS_KEY)+"&language=th&region=TH&callback=__gmReady";
+    s.async=true;
+    s.onerror=function(){ toast("โหลด Google Maps ไม่ได้ ใช้แผนที่สำรองแทน"); boot(leafletAdapter()); };
+    document.head.appendChild(s);
+  } else {
+    boot(leafletAdapter());
+  }
+})();
+</script>
+</body>
+</html>
