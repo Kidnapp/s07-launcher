@@ -7,7 +7,7 @@ window.LAUNCHER_CONFIG = {
 
   // OAuth Client ID (สำหรับ "เข้าสู่ระบบ" ดึงเพลย์ลิสต์ส่วนตัว) — ไม่ใส่ = ปุ่ม login จะแจ้งให้ตั้งค่า
   // สร้างที่ Credentials → Create Credentials → OAuth client ID → Web application
-  googleClientId: "",
+  googleClientId: "1023788103690-bnqo4rp7uckh5fc3k0jsnoqr6g8lo7lr.apps.googleusercontent.com",
 
   // Google Maps API key (ไม่จำเป็น) — เว้นว่าง = ใช้แผนที่ Esri ฟรี
   // ใส่ถ้าอยากได้แผนที่ Google แท้ + ป้ายไทย + จราจร
