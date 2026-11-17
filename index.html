@@ -138,6 +138,20 @@ button{cursor:pointer}
 .ytresults.tv .th img{position:static;width:100%;height:100%;object-fit:contain}
 .ytresults.tv .meta{padding:0;flex:1;min-width:0}
 .ytresults.tv .ti{-webkit-line-clamp:1}
+/* Home dashboard */
+.dash{flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.dash-hero{background:linear-gradient(140deg,rgba(240,169,58,.14),transparent 62%),var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:24px}
+.greet{color:var(--accent);font-size:15px;font-weight:600;letter-spacing:.02em}
+.dash-clock{font-family:var(--f-num);font-size:60px;font-weight:600;line-height:1.02;font-variant-numeric:tabular-nums;margin-top:8px}
+.dash-date{color:var(--muted);font-size:16px;margin-top:6px}
+.wx{display:flex;align-items:center;gap:16px;background:var(--panel-2);border:1px solid var(--line);border-radius:18px;padding:18px 20px}
+.wx-ico{font-size:46px;flex:none;line-height:1}
+.wx-main{flex:1;min-width:0}
+.wx-temp{font-family:var(--f-num);font-size:34px;font-weight:600;line-height:1}
+.wx-cond{color:var(--muted);font-size:14px;margin-top:4px}
+.wx-side{text-align:right;flex:none}
+.wx-side>div:first-child{font-size:14px;font-weight:500}
+.wx-hilo{color:var(--muted);font-size:13px;margin-top:5px;white-space:nowrap}
 .desk-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .footbtn{height:52px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--fg);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px}
 .footbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -294,28 +308,17 @@ button{cursor:pointer}
     <section class="pane media-pane" aria-label="แอปและความบันเทิง">
       <!-- หน้า desktop -->
       <div class="view desk" id="deskView">
-        <div class="ph"><h2>แอป</h2></div>
-        <div class="apps">
-          <button class="appbtn a-yt" data-app="youtube" type="button">
-            <span class="aico"><svg viewBox="0 0 24 24" fill="#fff"><path d="M21.6 7.2a2.8 2.8 0 0 0-2-2C17.9 4.8 12 4.8 12 4.8s-5.9 0-7.6.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 2 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 7.6.4 7.6.4s5.9 0 7.6-.4a2.8 2.8 0 0 0 2-2A29 29 0 0 0 22 12a29 29 0 0 0-.4-4.8zM10 15V9l5 3z"/></svg></span>
-            <b>YouTube</b>
-          </button>
-          <button class="appbtn a-ytm" data-app="music" type="button">
-            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z" fill="#fff" stroke="none"/></svg></span>
-            <b>YouTube Music</b>
-          </button>
-          <a class="appbtn a-maps" href="https://www.google.com/maps" target="_blank" rel="noopener">
-            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
-            <b>Maps เต็มจอ</b>
-          </a>
-          <button class="appbtn a-tv" data-app="tv" type="button">
-            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 21h8M9 6l3-3 3 3"/></svg></span>
-            <b>ทีวี</b>
-          </button>
-          <button class="appbtn a-set" id="appSettings" type="button">
-            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 13v-2l-2-.3a5 5 0 0 0-.5-1.2l1.2-1.6-1.4-1.4-1.6 1.2a5 5 0 0 0-1.2-.5L13 5h-2l-.3 2a5 5 0 0 0-1.2.5L7.9 6.3 6.5 7.7l1.2 1.6a5 5 0 0 0-.5 1.2L5 11v2l2 .3a5 5 0 0 0 .5 1.2l-1.2 1.6 1.4 1.4 1.6-1.2a5 5 0 0 0 1.2.5l.3 2h2l.3-2a5 5 0 0 0 1.2-.5l1.6 1.2 1.4-1.4-1.2-1.6a5 5 0 0 0 .5-1.2z"/></svg></span>
-            <b>ตั้งค่า</b>
-          </button>
+        <div class="dash">
+          <div class="dash-hero">
+            <div class="greet" id="greet">สวัสดี</div>
+            <div class="dash-clock" id="dashClock">--:--</div>
+            <div class="dash-date" id="dashDate"></div>
+          </div>
+          <div class="wx" id="wx">
+            <div class="wx-ico" id="wxIco">🌤️</div>
+            <div class="wx-main"><div class="wx-temp" id="wxTemp">--°</div><div class="wx-cond" id="wxCond">กำลังโหลดสภาพอากาศ…</div></div>
+            <div class="wx-side"><div id="wxLoc">ตำแหน่งปัจจุบัน</div><div class="wx-hilo" id="wxHiLo"></div></div>
+          </div>
         </div>
         <div class="desk-foot">
           <button class="footbtn" id="swapBtn" type="button"><svg viewBox="0 0 24 24"><path d="M7 7h13l-3-3M17 17H4l3 3"/></svg>สลับฝั่ง</button>
@@ -398,11 +401,43 @@ button{cursor:pointer}
 
   // ---- นาฬิกา ----
   function tick(){
-    var d=new Date();
-    $("clock").textContent = d.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
+    var d=new Date(), hm=d.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
+    $("clock").textContent = hm;
     $("date").textContent = d.toLocaleDateString("th-TH",{weekday:"long",day:"numeric",month:"short"});
+    var dc=$("dashClock"); if(dc){ dc.textContent=hm; $("dashDate").textContent=d.toLocaleDateString("th-TH",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+      var h=d.getHours(), g=h<5?"สวัสดีตอนดึก":h<12?"สวัสดีตอนเช้า":h<17?"สวัสดีตอนบ่าย":h<20?"สวัสดีตอนเย็น":"สวัสดีตอนค่ำ"; $("greet").textContent=g; }
   }
   tick(); setInterval(tick, 10000);
+
+  // ---- สภาพอากาศ (Open-Meteo ฟรี ไม่ต้อง key) ----
+  var wxAt=0;
+  function wxCode(c){
+    if(c===0) return {l:"ท้องฟ้าแจ่มใส",i:"☀️"};
+    if(c<=3) return {l:"มีเมฆบางส่วน",i:"⛅"};
+    if(c<=48) return {l:"มีหมอก",i:"🌫️"};
+    if(c<=57) return {l:"ฝนปรอย",i:"🌦️"};
+    if(c<=67) return {l:"ฝนตก",i:"🌧️"};
+    if(c<=77) return {l:"หิมะ",i:"❄️"};
+    if(c<=82) return {l:"ฝนซู่",i:"🌧️"};
+    if(c<=99) return {l:"พายุฝนฟ้าคะนอง",i:"⛈️"};
+    return {l:"—",i:"🌡️"};
+  }
+  function loadWeather(lat,lng){
+    if(Date.now()-wxAt < 600000) return; wxAt=Date.now();
+    var u="https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lng+"&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto";
+    fetch(u).then(function(r){return r.json();}).then(function(d){
+      if(!d.current||!$("wxTemp")) return;
+      var w=wxCode(d.current.weather_code);
+      $("wxIco").textContent=w.i; $("wxTemp").textContent=Math.round(d.current.temperature_2m)+"°"; $("wxCond").textContent=w.l;
+      if(d.daily) $("wxHiLo").textContent="สูง "+Math.round(d.daily.temperature_2m_max[0])+"° · ต่ำ "+Math.round(d.daily.temperature_2m_min[0])+"°";
+    }).catch(function(){ wxAt=0; });
+  }
+  function loadLocName(lat,lng){
+    fetch("https://photon.komoot.io/reverse?lat="+lat+"&lon="+lng).then(function(r){return r.json();}).then(function(d){
+      var p=(d.features&&d.features[0]&&d.features[0].properties)||{}; var n=p.city||p.district||p.county||p.state; if(n&&$("wxLoc")) $("wxLoc").textContent=n;
+    }).catch(function(){});
+  }
+  loadWeather(DEFAULT_CENTER[0],DEFAULT_CENTER[1]); // แสดงสภาพอากาศเริ่มต้นก่อนได้ GPS
 
   function toast(msg){ var t=$("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(function(){t.hidden=true;},3500); }
   function setGps(s, txt){ $("gps").dataset.s=s; $("gpsTxt").textContent=txt; }
@@ -591,6 +626,7 @@ button{cursor:pointer}
       var acc=Math.round(p.coords.accuracy);
       setGps("ok","ตำแหน่งพร้อม ±"+acc+" ม.");
       if(map){ map.setMe(me[0],me[1]); if(map.updateHeading) map.updateHeading(p.coords.heading); if(follow && !(map.isDrive&&map.isDrive())) map.center(me[0],me[1]); }
+      if(!window.__wxGps){ window.__wxGps=true; wxAt=0; loadWeather(me[0],me[1]); loadLocName(me[0],me[1]); }
     },function(err){
       var msg = err.code===1?"ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง":err.code===2?"หาตำแหน่งไม่ได้":"หาตำแหน่งนานเกินไป";
       setGps("bad",msg);
@@ -954,7 +990,6 @@ button{cursor:pointer}
   $("railSettings").onclick=function(){ $("sheet").hidden=false; };
   railActive("desktop");
   $("ytBack").onclick=function(){ showApp("desktop"); };
-  $("appSettings").onclick=function(){ $("sheet").hidden=false; };
   $("ytSearchForm").addEventListener("submit",function(e){ e.preventDefault(); var q=$("ytQ").value.trim(); if(q){ setChip(null); ytApiSearch(q); $("ytQ").blur(); } });
   $("fsBtn").onclick=function(){ $("ytPlayerBox").classList.toggle("max"); };
   $("pbExit").onclick=function(){ $("ytPlayerBox").classList.remove("max"); };
