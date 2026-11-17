@@ -97,6 +97,10 @@ button{cursor:pointer}
 .leaflet-control-attribution{background:rgba(12,15,20,.7)!important;color:var(--muted)!important;font-size:10px}
 .leaflet-control-attribution a{color:var(--muted)!important}
 .me{width:20px;height:20px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 0 0 8px rgba(77,141,255,.25)}
+.maplibregl-map{position:absolute;inset:0;font-family:var(--f-ui)}
+.maplibregl-ctrl-attribution{background:rgba(12,15,20,.6)!important;color:var(--muted)!important;font-size:10px}
+.maplibregl-ctrl-attribution a{color:var(--muted)!important}
+.maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right{z-index:400}
 
 /* media: desktop + มินิแอป */
 .view{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
@@ -236,6 +240,7 @@ button{cursor:pointer}
         <button class="ibtn on" id="follow" aria-label="ติดตามตำแหน่ง"><svg viewBox="0 0 24 24"><path d="m3 11 19-9-9 19-2-8-8-2z"/></svg></button>
         <button class="ibtn" id="zin" aria-label="ซูมเข้า"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         <button class="ibtn" id="zout" aria-label="ซูมออก"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+        <button class="ibtn" id="driveBtn" aria-label="โหมดขับขี่" hidden><svg viewBox="0 0 24 24"><path d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5.4h7.4a2 2 0 0 1 1.9 1.4L19 11m-14 0h14m-14 0v5m14-5v5M7 16h2m6 0h2"/></svg></button>
       </div>
       <div class="dest" id="dest" hidden>
         <div class="dhead">
@@ -472,11 +477,51 @@ button{cursor:pointer}
     };
   }
 
+  // ---- MapLibre (ฟรี · vector · car view 3D) ----
+  function loadMapLibre(cb){
+    if(window.maplibregl){ cb(true); return; }
+    var css=document.createElement("link"); css.rel="stylesheet"; css.href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"; document.head.appendChild(css);
+    var s=document.createElement("script"); s.src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js";
+    s.onload=function(){ cb(!!window.maplibregl); }; s.onerror=function(){ cb(false); };
+    document.head.appendChild(s);
+  }
+  function maplibreAdapter(){
+    var m=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/liberty",
+      center:[DEFAULT_CENTER[1],DEFAULT_CENTER[0]],zoom:14,pitch:0,bearing:0,attributionControl:false});
+    m.addControl(new maplibregl.AttributionControl({compact:true}));
+    var meM=null,destM=null,drive=false,curHeading=0,ready=false;
+    function conv(ll){ return ll.map(function(c){return [c[1],c[0]];}); }
+    m.on("load",function(){ ready=true; });
+    m.on("dragstart",function(){ setFollow(false); });
+    return {
+      invalidate:function(){ try{ m.resize(); }catch(e){} },
+      setTheme:function(t){},
+      drawRoute:function(ll){ var geo={type:"Feature",geometry:{type:"LineString",coordinates:conv(ll)}};
+        var paint=function(){ if(m.getSource("route")){ m.getSource("route").setData(geo); return; }
+          m.addSource("route",{type:"geojson",data:geo});
+          m.addLayer({id:"route-c",type:"line",source:"route",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#0a1020","line-width":9,"line-opacity":.6}});
+          m.addLayer({id:"route",type:"line",source:"route",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#4d8dff","line-width":6}}); };
+        if(ready) paint(); else m.once("load",paint);
+        try{ var b=new maplibregl.LngLatBounds(); conv(ll).forEach(function(c){b.extend(c);}); m.fitBounds(b,{padding:60,pitch:drive?60:0,bearing:drive?curHeading:0}); }catch(e){} },
+      clearRoute:function(){ ["route","route-c"].forEach(function(id){ if(m.getLayer(id))m.removeLayer(id); }); if(m.getSource("route"))m.removeSource("route"); },
+      zoom:function(d){ m.easeTo({zoom:m.getZoom()+d}); },
+      setMe:function(lat,lng){ if(!meM){ var el=document.createElement("div"); el.className="me"; meM=new maplibregl.Marker({element:el}).setLngLat([lng,lat]).addTo(m); } else meM.setLngLat([lng,lat]); if(drive) m.easeTo({center:[lng,lat],duration:700}); },
+      center:function(lat,lng,z){ m.easeTo({center:[lng,lat],zoom:z||m.getZoom()}); },
+      search:function(q,near){ var url="https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=th&countrycodes=th&q="+encodeURIComponent(q);
+        return fetch(url).then(function(r){return r.json();}).then(function(a){ if(!a.length)return null; return {lat:+a[0].lat,lng:+a[0].lon,name:a[0].display_name.split(",")[0],sub:a[0].display_name.split(",").slice(1,3).join(",")}; }); },
+      setDest:function(p){ if(destM)destM.remove(); destM=new maplibregl.Marker({color:"#ff5d5d"}).setLngLat([p.lng,p.lat]).addTo(m); m.easeTo({center:[p.lng,p.lat],zoom:16}); },
+      setDrive:function(on){ drive=on; if(on){ var c=meM?meM.getLngLat():{lng:DEFAULT_CENTER[1],lat:DEFAULT_CENTER[0]}; m.easeTo({pitch:60,zoom:17,bearing:curHeading||0,center:[c.lng,c.lat]}); } else { m.easeTo({pitch:0,bearing:0}); } },
+      isDrive:function(){ return drive; },
+      updateHeading:function(h){ if(h!=null&&!isNaN(h)) curHeading=h; if(drive&&h!=null&&!isNaN(h)) m.easeTo({bearing:h,duration:500}); }
+    };
+  }
+
   function setFollow(v){ follow=v; $("follow").classList.toggle("on",v); if(v&&me&&map) map.center(me[0],me[1],16);
     if(!v && navMode){ navMode=false; $("goBtn").textContent="นำทาง"; $("goBtn").classList.remove("stop"); } }
   $("follow").onclick=function(){ if(!me){ toast("ยังไม่ได้ตำแหน่ง ลองอนุญาตการเข้าถึงตำแหน่ง"); startGps(); } setFollow(true); };
   $("zin").onclick=function(){ map&&map.zoom(1); };
   $("zout").onclick=function(){ map&&map.zoom(-1); };
+  $("driveBtn").onclick=function(){ if(!map||!map.setDrive) return; var on=!map.isDrive(); if(on&&!me){ toast("ต้องเปิดตำแหน่งก่อนถึงใช้โหมดขับขี่"); return; } map.setDrive(on); $("driveBtn").classList.toggle("on",on); if(on) setFollow(true); };
 
   // ---- GPS ----
   var watchId=null;
@@ -488,7 +533,7 @@ button{cursor:pointer}
       me=[p.coords.latitude,p.coords.longitude];
       var acc=Math.round(p.coords.accuracy);
       setGps("ok","ตำแหน่งพร้อม ±"+acc+" ม.");
-      if(map){ map.setMe(me[0],me[1]); if(follow) map.center(me[0],me[1]); }
+      if(map){ map.setMe(me[0],me[1]); if(map.updateHeading) map.updateHeading(p.coords.heading); if(follow && !(map.isDrive&&map.isDrive())) map.center(me[0],me[1]); }
     },function(err){
       var msg = err.code===1?"ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง":err.code===2?"หาตำแหน่งไม่ได้":"หาตำแหน่งนานเกินไป";
       setGps("bad",msg);
@@ -850,16 +895,16 @@ button{cursor:pointer}
 
   // ---- start ----
   applyPrefs();
-  function boot(adapter){ map=adapter; applyPrefs(); if(me) map.setMe(me[0],me[1]); startGps(); }
+  function boot(adapter){ map=adapter; applyPrefs(); if(me) map.setMe(me[0],me[1]); startGps(); if(map.setDrive) $("driveBtn").hidden=false; }
   if(GMAPS_KEY){
     window.__gmReady=function(){ boot(googleAdapter()); };
     var s=document.createElement("script");
     s.src="https://maps.googleapis.com/maps/api/js?key="+encodeURIComponent(GMAPS_KEY)+"&language=th&region=TH&callback=__gmReady";
     s.async=true;
-    s.onerror=function(){ toast("โหลด Google Maps ไม่ได้ ใช้แผนที่สำรองแทน"); boot(leafletAdapter()); };
+    s.onerror=function(){ toast("โหลด Google Maps ไม่ได้ ใช้แผนที่สำรองแทน"); loadMapLibre(function(ok){ boot(ok?maplibreAdapter():leafletAdapter()); }); };
     document.head.appendChild(s);
   } else {
-    boot(leafletAdapter());
+    loadMapLibre(function(ok){ boot(ok?maplibreAdapter():leafletAdapter()); });
   }
 })();
 </script>
