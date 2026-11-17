@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>S07 Launcher</title>
+<title>Ember</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -14,9 +14,10 @@
 
 /* Layout: แถบสถานะบน · แผงแผนที่ + แผงความบันเทิง (สลับซ้าย/ขวาได้) · dock ล่าง */
 :root{
-  --bg:#0c0f14; --panel:#151a22; --panel-2:#1d2430; --line:rgba(255,255,255,.07);
-  --fg:#edf1f7; --muted:#8b95a7; --accent:#4d8dff; --ok:#3ecf8e; --warn:#f5b84a; --bad:#ff5d5d;
-  --yt:#ff2b2b; --ytm:#ff5a36;
+  /* ===== Ember identity — warm cockpit ===== */
+  --bg:#0e0c0a; --panel:#191511; --panel-2:#272019; --line:rgba(255,234,205,.08);
+  --fg:#f3ece1; --muted:#a3978a; --accent:#f0a93a; --nav:#2fd4c6; --ok:#4fd1a5; --warn:#f5b84a; --bad:#ff6b5d;
+  --yt:#ff3b30; --ytm:#ff5a36;
   --f-ui:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-num:"Space Grotesk","IBM Plex Sans Thai",system-ui,sans-serif;
   --split:62%;
@@ -33,7 +34,9 @@ button{cursor:pointer}
   padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
 
 /* status bar */
-.bar{display:flex;align-items:center;gap:16px;padding:0 6px;min-height:40px}
+.bar{display:flex;align-items:center;gap:14px;padding:0 6px;min-height:40px}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--f-num);font-weight:600;font-size:15px;letter-spacing:.22em;color:var(--fg)}
+.brand .spark{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffd98a,var(--accent) 55%,#a85713);box-shadow:0 0 10px rgba(240,169,58,.65),0 0 2px rgba(240,169,58,.9)}
 .clock{font-family:var(--f-num);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .date{color:var(--muted);font-size:15px}
 .spacer{flex:1}
@@ -65,7 +68,7 @@ button{cursor:pointer}
 .sugg[hidden]{display:none}
 .sugg li{display:flex;align-items:center;gap:11px;padding:11px 10px;border-radius:9px;cursor:pointer}
 .sugg li.active,.sugg li:hover{background:var(--panel-2)}
-.sugg .pin{width:30px;height:30px;border-radius:8px;background:rgba(77,141,255,.14);display:grid;place-items:center;flex:none;color:var(--accent)}
+.sugg .pin{width:30px;height:30px;border-radius:8px;background:rgba(240,169,58,.15);display:grid;place-items:center;flex:none;color:var(--accent)}
 .sugg .pin svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
 .sugg .txt{min-width:0}
 .sugg .s1{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -73,7 +76,7 @@ button{cursor:pointer}
 .ibtn{height:52px;min-width:52px;border-radius:14px;border:1px solid var(--line);background:rgba(21,26,34,.94);display:grid;place-items:center;backdrop-filter:blur(8px)}
 .ibtn.sm{height:42px;min-width:42px;border:0;background:var(--panel-2);border-radius:10px}
 .ibtn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.ibtn.on{color:var(--accent);border-color:rgba(77,141,255,.5)}
+.ibtn.on{color:var(--accent);border-color:rgba(240,169,58,.5)}
 .map-side{position:absolute;right:12px;bottom:96px;z-index:500;display:flex;flex-direction:column;gap:8px}
 .dest{position:absolute;left:12px;right:12px;bottom:12px;z-index:500;display:flex;flex-direction:column;background:rgba(21,26,34,.97);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(8px);overflow:hidden;max-height:62%}
 .dest[hidden]{display:none}
@@ -96,7 +99,7 @@ button{cursor:pointer}
 .leaflet-container{background:#10141b;font-family:var(--f-ui)}
 .leaflet-control-attribution{background:rgba(12,15,20,.7)!important;color:var(--muted)!important;font-size:10px}
 .leaflet-control-attribution a{color:var(--muted)!important}
-.me{width:20px;height:20px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 0 0 8px rgba(77,141,255,.25)}
+.me{width:20px;height:20px;border-radius:50%;background:var(--nav);border:3px solid #fff;box-shadow:0 0 0 8px rgba(47,212,198,.25)}
 .maplibregl-map{position:absolute;inset:0;font-family:var(--f-ui)}
 .maplibregl-ctrl-attribution{background:rgba(12,15,20,.6)!important;color:var(--muted)!important;font-size:10px}
 .maplibregl-ctrl-attribution a{color:var(--muted)!important}
@@ -226,6 +229,7 @@ button{cursor:pointer}
 <body>
 <div class="app">
   <header class="bar">
+    <div class="brand"><span class="spark"></span>EMBER</div>
     <div class="clock" id="clock">--:--</div>
     <div class="date" id="date"></div>
     <div class="spacer"></div>
@@ -423,7 +427,7 @@ button{cursor:pointer}
       drawRoute:function(ll){ if(routeLine) m.removeLayer(routeLine);
         routeLine=L.layerGroup([
           L.polyline(ll,{color:"#0a1020",weight:10,opacity:.6}),
-          L.polyline(ll,{color:"#4d8dff",weight:6,opacity:.95})
+          L.polyline(ll,{color:"#2fd4c6",weight:6,opacity:.95})
         ]).addTo(m);
         m.fitBounds(L.polyline(ll).getBounds(),{padding:[50,50]}); },
       clearRoute:function(){ if(routeLine){ m.removeLayer(routeLine); routeLine=null; } },
@@ -477,13 +481,13 @@ button{cursor:pointer}
       setTheme:function(t){ m.setOptions({styles:t==="dark"?DARK_STYLE:null}); },
       drawRoute:function(ll){ if(routeLine) routeLine.setMap(null);
         var path=ll.map(function(c){return {lat:c[0],lng:c[1]};});
-        routeLine=new google.maps.Polyline({path:path,strokeColor:"#4d8dff",strokeWeight:6,strokeOpacity:.95,map:m});
+        routeLine=new google.maps.Polyline({path:path,strokeColor:"#2fd4c6",strokeWeight:6,strokeOpacity:.95,map:m});
         var b=new google.maps.LatLngBounds(); path.forEach(function(p){b.extend(p);}); m.fitBounds(b,50); },
       clearRoute:function(){ if(routeLine){ routeLine.setMap(null); routeLine=null; } },
       zoom:function(d){ m.setZoom(m.getZoom()+d); },
       setMe:function(lat,lng){
         var pos={lat:lat,lng:lng};
-        if(!meM) meM=new google.maps.Marker({position:pos,map:m,icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:"#4d8dff",fillOpacity:1,strokeColor:"#fff",strokeWeight:3}});
+        if(!meM) meM=new google.maps.Marker({position:pos,map:m,icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:"#2fd4c6",fillOpacity:1,strokeColor:"#fff",strokeWeight:3}});
         else meM.setPosition(pos);
       },
       center:function(lat,lng,z){ m.panTo({lat:lat,lng:lng}); if(z) m.setZoom(z); },
@@ -529,7 +533,7 @@ button{cursor:pointer}
         var paint=function(){ if(m.getSource("route")){ m.getSource("route").setData(geo); return; }
           m.addSource("route",{type:"geojson",data:geo});
           m.addLayer({id:"route-c",type:"line",source:"route",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#0a1020","line-width":9,"line-opacity":.6}});
-          m.addLayer({id:"route",type:"line",source:"route",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#4d8dff","line-width":6}}); };
+          m.addLayer({id:"route",type:"line",source:"route",layout:{"line-join":"round","line-cap":"round"},paint:{"line-color":"#2fd4c6","line-width":6}}); };
         if(ready) paint(); else m.once("load",paint);
         try{ var b=new maplibregl.LngLatBounds(); conv(ll).forEach(function(c){b.extend(c);}); m.fitBounds(b,{padding:60,pitch:drive?60:0,bearing:drive?curHeading:0}); }catch(e){} },
       clearRoute:function(){ ["route","route-c"].forEach(function(id){ if(m.getLayer(id))m.removeLayer(id); }); if(m.getSource("route"))m.removeSource("route"); },
