@@ -132,6 +132,33 @@ button{cursor:pointer}
 .ytcard .ch{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ytmsg{color:var(--muted);text-align:center;padding:24px 16px;font-size:14px;line-height:1.55;white-space:pre-line}
 .ytmsg[hidden]{display:none}
+.ytplayer-box.audio{position:absolute;left:0;top:0;width:1px;height:1px;min-height:0;aspect-ratio:auto;opacity:0;pointer-events:none;border:0;overflow:hidden}
+/* แถวอัลบั้มแนวนอน (music home) */
+.mrow{width:100%;display:flex;flex-direction:column;gap:10px}
+.mrow-h{font-size:16px;font-weight:600}
+.mrow-s{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.mrow-s::-webkit-scrollbar{display:none}
+.acard{flex:none;width:140px;text-align:left;background:none;border:0;color:var(--fg);padding:0}
+.acard:active{transform:scale(.97)}
+.acard .ath{position:relative;width:140px;height:140px;border-radius:12px;overflow:hidden;background:#000}
+.acard .ath img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.acard .ati{font-size:13px;font-weight:500;margin-top:8px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.acard .aar{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Now Playing bar */
+.nowbar{flex:none;display:flex;align-items:center;gap:12px;padding:8px 10px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px}
+.nowbar[hidden]{display:none}
+.nb-th{width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none;background:#000}
+.nb-meta{flex:1;min-width:0}
+.nb-ti{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-ar{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-ctrls{display:flex;align-items:center;gap:4px;flex:none}
+.nb-btn{width:40px;height:40px;border-radius:50%;border:0;background:none;color:var(--fg);display:grid;place-items:center}
+.nb-btn svg{width:22px;height:22px;fill:currentColor}
+.nb-btn.big{background:var(--fg);color:var(--bg);width:46px;height:46px}
+.nb-btn.big svg{width:24px;height:24px}
+.nb-btn.big .i-pause{display:none}
+.nb-btn.big.playing .i-play{display:none}
+.nb-btn.big.playing .i-pause{display:block}
 .ibtn.sm#ytLogin.authed{color:var(--ok)}
 .chips{display:flex;gap:8px;overflow-x:auto;flex:none;padding-bottom:2px;scrollbar-width:none}
 .chips[hidden]{display:none}
@@ -251,6 +278,15 @@ button{cursor:pointer}
         <div class="ytplayer-box" id="ytPlayerBox" hidden><div id="ytplayer"></div></div>
         <div class="ytresults" id="ytResults"></div>
         <div class="ytmsg" id="ytMsg" hidden></div>
+        <div class="nowbar" id="nowBar" hidden>
+          <img class="nb-th" id="nbThumb" alt="">
+          <div class="nb-meta"><div class="nb-ti" id="nbTitle"></div><div class="nb-ar" id="nbArtist"></div></div>
+          <div class="nb-ctrls">
+            <button class="nb-btn" id="nbPrev" type="button" aria-label="ก่อนหน้า"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+            <button class="nb-btn big" id="nbPlay" type="button" aria-label="เล่น/หยุด"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
+            <button class="nb-btn" id="nbNext" type="button" aria-label="ถัดไป"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg></button>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -606,20 +642,43 @@ button{cursor:pointer}
   function ytMsg(txt){ var m=$("ytMsg"); if(txt){ m.textContent=txt; m.hidden=false; } else m.hidden=true; }
   function apiErr(d,pre){ ytMsg(pre+": "+((d.error&&d.error.message)||"ตรวจสอบ key")); }
 
+  function itemToTrack(it){
+    var vid=(it.id&&it.id.videoId)||(it.snippet&&it.snippet.resourceId&&it.snippet.resourceId.videoId)||(typeof it.id==="string"?it.id:null);
+    if(!vid) return null; var sn=it.snippet||{};
+    return {id:vid,title:decodeEnt(sn.title),artist:decodeEnt(sn.videoOwnerChannelTitle||sn.channelTitle),
+      thumb:((sn.thumbnails&&(sn.thumbnails.medium||sn.thumbnails.high||sn.thumbnails.default))||{}).url||""};
+  }
   function renderResults(items){
-    var box=$("ytResults"); box.innerHTML=""; box.classList.toggle("music", ytMode==="music"); var n=0;
-    (items||[]).forEach(function(it){
-      var vid=(it.id&&it.id.videoId)||(it.snippet&&it.snippet.resourceId&&it.snippet.resourceId.videoId)||(typeof it.id==="string"?it.id:null); if(!vid) return;
-      var sn=it.snippet||{}, th=((sn.thumbnails&&(sn.thumbnails.medium||sn.thumbnails.high||sn.thumbnails.default))||{}).url||"";
+    var box=$("ytResults"); box.innerHTML=""; box.classList.toggle("music", ytMode==="music");
+    var tracks=(items||[]).map(itemToTrack).filter(Boolean);
+    tracks.forEach(function(t,idx){
       var card=document.createElement("button"); card.type="button"; card.className="ytcard";
       card.innerHTML='<div class="th"><img loading="lazy" alt=""></div><div class="meta"><div class="ti"></div><div class="ch"></div></div>';
-      card.querySelector("img").src=th;
-      card.querySelector(".ti").textContent=decodeEnt(sn.title);
-      card.querySelector(".ch").textContent=decodeEnt(sn.videoOwnerChannelTitle||sn.channelTitle);
-      card.onclick=function(){ playVid(vid); };
-      box.appendChild(card); n++;
+      card.querySelector("img").src=t.thumb;
+      card.querySelector(".ti").textContent=t.title;
+      card.querySelector(".ch").textContent=t.artist;
+      card.onclick=function(){ playQueue(tracks, idx); };
+      box.appendChild(card);
     });
-    ytMsg(n?"":"ไม่พบผลลัพธ์");
+    ytMsg(tracks.length?"":"ไม่พบผลลัพธ์");
+  }
+  function renderRow(title, tracks){
+    var sec=document.createElement("div"); sec.className="mrow";
+    sec.innerHTML='<div class="mrow-h"></div><div class="mrow-s"></div>';
+    sec.querySelector(".mrow-h").textContent=title;
+    var sc=sec.querySelector(".mrow-s");
+    tracks.forEach(function(t,idx){
+      var c=document.createElement("button"); c.type="button"; c.className="acard";
+      c.innerHTML='<div class="ath"><img loading="lazy" alt=""></div><div class="ati"></div><div class="aar"></div>';
+      c.querySelector("img").src=t.thumb; c.querySelector(".ati").textContent=t.title; c.querySelector(".aar").textContent=t.artist;
+      c.onclick=function(){ playQueue(tracks, idx); };
+      sc.appendChild(c);
+    });
+    $("ytResults").appendChild(sec);
+  }
+  function musicHome(items){
+    var box=$("ytResults"); box.innerHTML=""; box.classList.remove("music"); ytMsg("");
+    renderRow("เพลงฮิตในไทย", (items||[]).map(itemToTrack).filter(Boolean));
   }
   var NOKEY="ยังไม่ได้ใส่ YouTube API key ใน config.js\nใส่แล้วจะค้นหาและเล่นวิดีโอในแผงได้เลย";
   function ytApiSearch(q){
@@ -637,7 +696,8 @@ button{cursor:pointer}
     var cat = ytMode==="music" ? "&videoCategoryId=10" : "";
     var u="https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=TH&maxResults=20"+cat+"&key="+YT_KEY;
     fetch(u).then(function(r){return r.json();}).then(function(d){
-      if(d.error){ apiErr(d,"โหลดไม่ได้"); return; } renderResults(d.items);
+      if(d.error){ apiErr(d,"โหลดไม่ได้"); return; }
+      if(ytMode==="music") musicHome(d.items); else renderResults(d.items);
     }).catch(function(){ ytMsg("โหลดไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"); });
   }
   function loadPlaylist(id,title){
@@ -673,20 +733,57 @@ button{cursor:pointer}
     box.hidden = box.children.length===0;
   }
 
-  function playVid(vid){
-    $("ytplayer").innerHTML='<iframe src="https://www.youtube.com/embed/'+encodeURIComponent(vid)+'?autoplay=1&playsinline=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="origin-when-cross-origin"></iframe>';
-    $("ytPlayerBox").hidden=false;
-    try{ $("ytPlayerBox").scrollIntoView({block:"nearest"}); }catch(e){}
+  // --- ตัวเล่น (YouTube IFrame Player API) + คิว + auto-next ---
+  var queue=[], qi=-1, curTrack=null;
+  var YTP={player:null,ready:false,pending:null,apiAsked:false};
+  window.onYouTubeIframeAPIReady=function(){ createPlayer(); };
+  function loadYTApi(){
+    if(window.YT&&window.YT.Player){ createPlayer(); return; }
+    if(YTP.apiAsked) return; YTP.apiAsked=true;
+    var s=document.createElement("script"); s.src="https://www.youtube.com/iframe_api"; document.head.appendChild(s);
   }
+  function createPlayer(){
+    if(YTP.player) return;
+    YTP.player=new YT.Player("ytplayer",{height:"100%",width:"100%",
+      playerVars:{playsinline:1,rel:0,origin:location.origin},
+      events:{ onReady:function(){ YTP.ready=true; if(YTP.pending){ var p=YTP.pending; YTP.pending=null; YTP.player.loadVideoById(p); } },
+               onStateChange:function(e){ setPlayIcon(e.data===1); if(e.data===0) nextTrack(); } }});
+  }
+  function doPlay(id){
+    $("ytPlayerBox").hidden=false;
+    if(YTP.ready&&YTP.player){ YTP.player.loadVideoById(id); } else { YTP.pending=id; loadYTApi(); }
+  }
+  function playTrack(t){
+    if(!t) return; curTrack=t;
+    $("ytPlayerBox").classList.toggle("audio", ytMode==="music");
+    doPlay(t.id);
+    if(ytMode==="music"){ showNowBar(t); }
+    else { $("nowBar").hidden=true; try{ $("ytPlayerBox").scrollIntoView({block:"nearest"}); }catch(e){} }
+  }
+  function playQueue(list,idx){ queue=list||[]; qi=idx; playTrack(queue[qi]); }
+  function nextTrack(){ if(qi>=0&&qi<queue.length-1){ qi++; playTrack(queue[qi]); } }
+  function prevTrack(){ if(qi>0){ qi--; playTrack(queue[qi]); } }
+  function stopPlayback(){
+    try{ if(YTP.player&&YTP.player.stopVideo) YTP.player.stopVideo(); }catch(e){}
+    $("ytPlayerBox").hidden=true; $("ytPlayerBox").classList.remove("audio");
+    $("nowBar").hidden=true; queue=[]; qi=-1; curTrack=null;
+  }
+  function showNowBar(t){ $("nbThumb").src=t.thumb||""; $("nbTitle").textContent=t.title; $("nbArtist").textContent=t.artist; $("nowBar").hidden=false; }
+  function setPlayIcon(playing){ $("nbPlay").classList.toggle("playing",playing); }
+  $("nbPlay").onclick=function(){ if(!YTP.player)return; var st=YTP.player.getPlayerState?YTP.player.getPlayerState():-1; if(st===1) YTP.player.pauseVideo(); else YTP.player.playVideo(); };
+  $("nbNext").onclick=nextTrack;
+  $("nbPrev").onclick=prevTrack;
+
   function showApp(which){
     var isDesk = which==="desktop";
     $("deskView").hidden=!isDesk;
     $("ytappView").hidden=isDesk;
-    if(isDesk) return;
+    if(isDesk){ stopPlayback(); return; }
+    if(which!==ytMode) stopPlayback();   // สลับโหมด = หยุด+เคลียร์ แยกกันชัดเจน
     ytMode=which;
-    $("ytQ").placeholder = which==="music" ? "ค้นหาเพลง" : "ค้นหาบน YouTube";
-    updateAuthUI();
-    var go=function(){ renderChips(); if(!ytLoaded[which]){ ytLoaded[which]=true; loadTrending(); } };
+    $("ytQ").value=""; $("ytQ").placeholder = which==="music" ? "ค้นหาเพลง" : "ค้นหาบน YouTube";
+    updateAuthUI(); loadYTApi();
+    var go=function(){ renderChips(); loadTrending(); };
     if(isAuthed() && !myPlaylists.length) loadMyLibrary(go); else go();
   }
   Array.prototype.forEach.call(document.querySelectorAll(".appbtn[data-app]"),function(b){
