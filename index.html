@@ -114,7 +114,17 @@ button{cursor:pointer}
 .appbtn .aico svg{width:30px;height:30px}
 .appbtn b{font-size:17px;font-weight:600}
 .a-yt .aico{background:var(--yt)} .a-ytm .aico{background:#ff3b30}
-.a-maps .aico{background:#2d7d46} .a-set .aico{background:#3a4254}
+.a-maps .aico{background:#2d7d46} .a-set .aico{background:#3a4254} .a-tv .aico{background:#6c4bd6}
+.tvplayer-box{position:relative;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--line);aspect-ratio:16/9;flex:none}
+.tvplayer-box[hidden]{display:none}
+.tvplayer-box video{position:absolute;inset:0;width:100%;height:100%;background:#000}
+.ytresults.tv{flex-direction:column;flex-wrap:nowrap;gap:4px}
+.ytresults.tv .ytcard{width:100%;flex:none;flex-direction:row;align-items:center;gap:12px;padding:8px;border-color:transparent;background:transparent}
+.ytresults.tv .ytcard:hover{background:var(--panel-2)}
+.ytresults.tv .th{width:76px;height:46px;padding-top:0;flex:none;border-radius:6px;background:#0c0f14;display:grid;place-items:center}
+.ytresults.tv .th img{position:static;width:100%;height:100%;object-fit:contain}
+.ytresults.tv .meta{padding:0;flex:1;min-width:0}
+.ytresults.tv .ti{-webkit-line-clamp:1}
 .desk-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .footbtn{height:52px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line);color:var(--fg);display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px}
 .footbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -271,6 +281,10 @@ button{cursor:pointer}
             <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
             <b>Maps เต็มจอ</b>
           </a>
+          <button class="appbtn a-tv" data-app="tv" type="button">
+            <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 21h8M9 6l3-3 3 3"/></svg></span>
+            <b>ทีวี</b>
+          </button>
           <button class="appbtn a-set" id="appSettings" type="button">
             <span class="aico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 13v-2l-2-.3a5 5 0 0 0-.5-1.2l1.2-1.6-1.4-1.4-1.6 1.2a5 5 0 0 0-1.2-.5L13 5h-2l-.3 2a5 5 0 0 0-1.2.5L7.9 6.3 6.5 7.7l1.2 1.6a5 5 0 0 0-.5 1.2L5 11v2l2 .3a5 5 0 0 0 .5 1.2l-1.2 1.6 1.4 1.4 1.6-1.2a5 5 0 0 0 1.2.5l.3 2h2l.3-2a5 5 0 0 0 1.2-.5l1.6 1.2 1.4-1.4-1.2-1.6a5 5 0 0 0 .5-1.2z"/></svg></span>
             <b>ตั้งค่า</b>
@@ -306,6 +320,20 @@ button{cursor:pointer}
           </div>
         </div>
       </div>
+      <!-- หน้าแอปทีวี (IPTV .m3u) -->
+      <div class="view tvapp" id="tvView" hidden>
+        <div class="ytbar">
+          <button class="ibtn sm" id="tvBack" aria-label="กลับ"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <form class="ytsearch" id="tvForm" autocomplete="off">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted)"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg>
+            <input id="tvUrl" type="url" placeholder="วาง URL .m3u / .m3u8 (แหล่งถูกกฎหมาย)" enterkeyhint="go">
+          </form>
+          <button class="ibtn sm" id="tvLoad" type="button" aria-label="โหลด"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg></button>
+        </div>
+        <div class="tvplayer-box" id="tvPlayerBox" hidden><video id="tvVideo" playsinline controls></video></div>
+        <div class="ytresults tv" id="tvList"></div>
+        <div class="ytmsg" id="tvMsg" hidden></div>
+      </div>
     </section>
   </main>
 </div>
@@ -330,6 +358,7 @@ button{cursor:pointer}
   // ---- ตั้งค่า ----
   var GMAPS_KEY = (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.googleMapsKey) || "";
   var YT_KEY = (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.youtubeApiKey) || "";
+  var TV_URL = (window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.tvPlaylist) || "";
   var DEFAULT_CENTER = [13.7466, 100.5393]; // กรุงเทพฯ (ใช้ก่อนจับตำแหน่งได้)
 
   var $ = function(id){ return document.getElementById(id); };
@@ -871,8 +900,12 @@ button{cursor:pointer}
 
   function showApp(which){
     var isDesk = which==="desktop";
+    var isTv = which==="tv";
     $("deskView").hidden=!isDesk;
-    $("ytappView").hidden=isDesk;
+    $("ytappView").hidden=(isDesk||isTv);
+    $("tvView").hidden=!isTv;
+    if(!isTv) stopTv();
+    if(isTv){ stopPlayback(); initTv(); return; }
     if(isDesk){ stopPlayback(); return; }
     if(which!==ytMode) stopPlayback();   // สลับโหมด = หยุด+เคลียร์ แยกกันชัดเจน
     ytMode=which; ytCat="";
@@ -892,6 +925,74 @@ button{cursor:pointer}
   $("pbExit").onclick=function(){ $("ytPlayerBox").classList.remove("max"); };
   $("ytLogin").onclick=function(){ if(isAuthed()) logout(); else startAuth(); };
   updateAuthUI();
+
+  // ---- แอปทีวี (IPTV .m3u ผ่าน hls.js) ----
+  var hls=null, tvLoaded=false;
+  function tvMsg(txt){ var m=$("tvMsg"); if(txt){ m.textContent=txt; m.hidden=false; } else m.hidden=true; }
+  function loadHls(cb){
+    if(window.Hls){ cb(true); return; }
+    var s=document.getElementById("hlsjs");
+    if(s){ s.addEventListener("load",function(){cb(!!window.Hls);}); return; }
+    s=document.createElement("script"); s.id="hlsjs"; s.src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js";
+    s.onload=function(){ cb(!!window.Hls); }; s.onerror=function(){ cb(false); }; document.head.appendChild(s);
+  }
+  function parseM3U(text){
+    var lines=text.split(/\r?\n/), out=[], cur=null;
+    lines.forEach(function(ln){ ln=ln.trim();
+      if(ln.indexOf("#EXTINF")===0){
+        cur={ name:(ln.split(",").slice(1).join(",").trim())||"(ไม่มีชื่อ)",
+          logo:(ln.match(/tvg-logo="([^"]*)"/)||[])[1]||"",
+          group:(ln.match(/group-title="([^"]*)"/)||[])[1]||"", url:"" };
+      } else if(ln && ln.charAt(0)!=="#"){ if(cur){ cur.url=ln; out.push(cur); cur=null; } }
+    });
+    return out;
+  }
+  function renderChannels(list){
+    var box=$("tvList"); box.innerHTML="";
+    list.forEach(function(ch){
+      var card=document.createElement("button"); card.type="button"; card.className="ytcard";
+      card.innerHTML='<div class="th"><img loading="lazy" alt=""></div><div class="meta"><div class="ti"></div><div class="ch"></div></div>';
+      var img=card.querySelector("img"); if(ch.logo){ img.src=ch.logo; img.onerror=function(){ img.style.display="none"; }; } else img.style.display="none";
+      card.querySelector(".ti").textContent=ch.name;
+      card.querySelector(".ch").textContent=ch.group;
+      card.onclick=function(){ playChannel(ch); };
+      box.appendChild(card);
+    });
+    tvMsg(list.length?"":"ไม่พบช่องในไฟล์นี้");
+  }
+  function loadTvPlaylist(url){
+    if(!url) return;
+    tvMsg("กำลังโหลดรายการช่อง…");
+    fetch(url).then(function(r){ if(!r.ok) throw 0; return r.text(); }).then(function(t){
+      var ch=parseM3U(t);
+      if(!ch.length){ tvMsg("ไม่พบช่องใน .m3u นี้ (รูปแบบไฟล์อาจไม่ถูก)"); return; }
+      store.set("tvurl",url); renderChannels(ch);
+    }).catch(function(){ tvMsg("โหลด playlist ไม่ได้\nอาจติด CORS หรือ URL ผิด — ต้องเป็นแหล่งที่เปิดให้เข้าถึงข้ามโดเมน"); });
+  }
+  function playChannel(ch){
+    $("tvPlayerBox").hidden=false; var v=$("tvVideo");
+    try{ $("tvPlayerBox").scrollIntoView({block:"nearest"}); }catch(e){}
+    loadHls(function(ok){
+      if(window.Hls && window.Hls.isSupported()){
+        if(hls){ try{hls.destroy();}catch(e){} }
+        hls=new Hls({maxBufferLength:15});
+        hls.loadSource(ch.url); hls.attachMedia(v);
+        hls.on(Hls.Events.MANIFEST_PARSED,function(){ v.play().catch(function(){}); });
+        hls.on(Hls.Events.ERROR,function(e,d){ if(d&&d.fatal) tvMsg("เล่นช่องนี้ไม่ได้ (สตรีมล่ม/ติด CORS/รูปแบบไม่รองรับ)"); });
+      } else if(v.canPlayType("application/vnd.apple.mpegurl")){
+        v.src=ch.url; v.play().catch(function(){});
+      } else { tvMsg("เบราว์เซอร์นี้เล่น HLS ไม่ได้"); }
+    });
+  }
+  function stopTv(){ try{ if(hls){ hls.destroy(); hls=null; } var v=$("tvVideo"); if(v){ v.pause(); v.removeAttribute("src"); v.load(); } }catch(e){} $("tvPlayerBox").hidden=true; }
+  function initTv(){
+    var url=($("tvUrl").value||"").trim() || TV_URL || store.get("tvurl","");
+    if(url){ $("tvUrl").value=url; if(!tvLoaded){ tvLoaded=true; loadTvPlaylist(url); } }
+    else tvMsg("วาง URL ไฟล์ .m3u / .m3u8 ด้านบนแล้วกดโหลด\n(ใส่แหล่งที่ถูกกฎหมายเอง)");
+  }
+  $("tvBack").onclick=function(){ showApp("desktop"); };
+  $("tvForm").addEventListener("submit",function(e){ e.preventDefault(); var u=($("tvUrl").value||"").trim(); if(u){ tvLoaded=true; loadTvPlaylist(u); $("tvUrl").blur(); } });
+  $("tvLoad").onclick=function(){ var u=($("tvUrl").value||"").trim(); if(u){ tvLoaded=true; loadTvPlaylist(u); } };
 
   // ---- start ----
   applyPrefs();

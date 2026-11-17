@@ -9,7 +9,11 @@ window.LAUNCHER_CONFIG = {
   // สร้างที่ Credentials → Create Credentials → OAuth client ID → Web application
   googleClientId: "1023788103690-bnqo4rp7uckh5fc3k0jsnoqr6g8lo7lr.apps.googleusercontent.com",
 
-  // Google Maps API key (ไม่จำเป็น) — เว้นว่าง = ใช้แผนที่ Esri ฟรี
+  // Google Maps API key (ไม่จำเป็น) — เว้นว่าง = ใช้ MapLibre ฟรี
   // ใส่ถ้าอยากได้แผนที่ Google แท้ + ป้ายไทย + จราจร
-  googleMapsKey: ""
+  googleMapsKey: "",
+
+  // URL เพลย์ลิสต์ IPTV (.m3u/.m3u8) สำหรับแอปทีวี — ใส่แหล่งที่ถูกกฎหมายเอง
+  // เว้นว่าง = วาง URL เองในแอปทีวี (ต้องเป็นแหล่งที่เปิด CORS)
+  tvPlaylist: ""
 };
