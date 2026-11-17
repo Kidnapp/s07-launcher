@@ -11,7 +11,15 @@ Launcher 2 แผงสไตล์ Tesla สำหรับเปิดบน w
 - วางใน `config.js` ช่อง `youtubeApiKey`
 - ถ้าไม่ใส่: เปิดแอปได้แต่ค้นหา/เล่นในแผงไม่ได้ (จะขึ้นข้อความให้ใส่ key)
 
-**2) Google Maps API key — ไม่จำเป็น**
+**2) OAuth Client ID — ใส่ถ้าอยากใช้ "เข้าสู่ระบบ" ดึงเพลย์ลิสต์ส่วนตัว**
+- สร้างที่ Credentials → Create Credentials → OAuth client ID → Web application
+- Authorized JavaScript origins: `https://kidnapp.github.io`
+- Authorized redirect URIs: `https://kidnapp.github.io/s07-launcher/`
+- ตั้ง OAuth consent screen (External) + เพิ่มตัวเองเป็น Test user + scope `youtube.readonly`
+- วางใน `config.js` ช่อง `googleClientId`
+- ได้: เพลย์ลิสต์/วิดีโอที่ไลก์ของคุณ (เป็นชิปกดเลือก) — หมายเหตุ: login อาจถูกบล็อกใน webview รถ ต้องลองจริง
+
+**3) Google Maps API key — ไม่จำเป็น**
 เว้นว่าง = ใช้แผนที่ **Esri (เทา-ดำ)** ฟรี + ค้นหาแบบ **Photon/Nominatim** ฟรี
 ใส่เฉพาะถ้าอยากได้แผนที่ Google แท้ + ป้ายไทย + จราจร → ช่อง `googleMapsKey`
 
