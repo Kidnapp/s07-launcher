@@ -728,7 +728,7 @@ button{cursor:pointer}
     var u="https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=TH&maxResults=20"+cat+"&key="+YT_KEY;
     fetch(u).then(function(r){return r.json();}).then(function(d){
       if(d.error){ apiErr(d,"โหลดไม่ได้"); return; }
-      if(ytMode==="music") musicHome(d.items); else renderResults(d.items);
+      renderResults(d.items);
     }).catch(function(){ ytMsg("โหลดไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"); });
   }
   function loadPlaylist(id,title){
