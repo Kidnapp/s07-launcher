@@ -752,15 +752,34 @@ button{cursor:pointer}
         myPlaylists=(d&&d.items)||[]; updateAuthUI(); if(cb)cb();
       }).catch(function(){ if(cb)cb(); });
   }
+  var YT_CATS=[{l:"ทั้งหมด",c:""},{l:"เพลง",c:"10"},{l:"เกม",c:"20"},{l:"กีฬา",c:"17"},{l:"ข่าว",c:"25"},{l:"บันเทิง",c:"24"},{l:"หนัง",c:"1"},{l:"ตลก",c:"23"},{l:"เทคโนโลยี",c:"28"}];
+  var ytCat="";
+  function loadCategory(c,label){
+    ytCat=c;
+    if(!c){ loadTrending(); return; }
+    if(!YT_KEY){ ytMsg(NOKEY); return; }
+    ytMsg("กำลังโหลด…");
+    var u="https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=TH&maxResults=20&videoCategoryId="+c+"&key="+YT_KEY;
+    fetch(u).then(function(r){return r.json();}).then(function(d){
+      if(d.error||!(d.items&&d.items.length)){ ytApiSearch(label); return; }
+      renderResults(d.items);
+    }).catch(function(){ ytMsg("โหลดไม่สำเร็จ"); });
+  }
   function setChip(el){ Array.prototype.forEach.call($("ytChips").children,function(c){ c.classList.toggle("active",c===el); }); }
-  function addChip(label,cls,fn){ var b=document.createElement("button"); b.type="button"; b.className="chip-b"+(cls?(" "+cls):""); b.textContent=label; b.onclick=function(){ setChip(b); fn(); }; $("ytChips").appendChild(b); }
+  function addChip(label,cls,fn){ var b=document.createElement("button"); b.type="button"; b.className="chip-b"+(cls?(" "+cls):""); b.textContent=label; b.onclick=function(){ setChip(b); fn(); }; $("ytChips").appendChild(b); return b; }
   function renderChips(){
     var box=$("ytChips"); box.innerHTML="";
     if(isAuthed()){
       if(likesId) addChip("♥ ไลก์","pl",function(){ loadPlaylist(likesId,"ไลก์"); });
       myPlaylists.forEach(function(p){ addChip(decodeEnt(p.snippet.title),"pl",function(){ loadPlaylist(p.id,p.snippet.title); }); });
     }
-    if(ytMode==="music"){ GENRES.forEach(function(g){ addChip(g,"",function(){ $("ytQ").value=g; ytApiSearch(g); }); }); }
+    if(ytMode==="music"){
+      GENRES.forEach(function(g){ addChip(g,"",function(){ $("ytQ").value=g; ytApiSearch(g); }); });
+    } else {
+      var firstCat=null;
+      YT_CATS.forEach(function(ct){ var b=addChip(ct.l,"",function(){ loadCategory(ct.c,ct.l); }); if(ct.c==="" && !firstCat) firstCat=b; });
+      if(firstCat) setChip(firstCat);
+    }
     box.hidden = box.children.length===0;
   }
 
@@ -811,7 +830,7 @@ button{cursor:pointer}
     $("ytappView").hidden=isDesk;
     if(isDesk){ stopPlayback(); return; }
     if(which!==ytMode) stopPlayback();   // สลับโหมด = หยุด+เคลียร์ แยกกันชัดเจน
-    ytMode=which;
+    ytMode=which; ytCat="";
     $("ytQ").value=""; $("ytQ").placeholder = which==="music" ? "ค้นหาเพลง" : "ค้นหาบน YouTube";
     $("fsBtn").hidden = (which==="music");
     updateAuthUI(); loadYTApi();
